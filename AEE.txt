@@ -1,0 +1,220 @@
+aee_my_dep<-function(input_1,input_2,input_3,input_4){
+  ############################################################################
+  f_one=function(input_1,input_2,input_3){
+    ID=input_1
+    evtime=input_2
+    gender=input_3
+    data=data.frame(ID,evtime,gender)
+    n=length(intersect(ID,ID))
+    M=c()
+    evtime_one=c()
+    X=c()
+    for(i in 1:n){
+      M[i]=length(subset(data$ID,data$ID==intersect(ID,ID)[i]))
+      evtime_one[i]=sum(subset(data$evtime,data$ID==intersect(ID,ID)[i]))
+      a=subset(data,data$ID==intersect(ID,ID)[i])
+      X[i]=a$gender[1]
+    }
+    return(list(n,M,X,evtime_one))
+  }
+  ###################################################
+  f_beta=function(input_1,input_2,input_3,input_4,input_5,input_6){
+    n=input_1
+    obtime=input_2
+    X=input_3
+    e_i_j=input_4
+    ipoint=input_5
+    r_i_j=input_6
+    s=intersect(sort(obtime),sort(obtime))
+    sol=matrix(rep(0,length(s)*n),nrow=n,ncol=length(s))
+    lambda_hat_1=lambda_hat
+    f=function(beta_hat_1){
+      for(i in 1:n){
+        for(j in 1:length(s)){
+          #    lambda_hat_1[j]=sum(e_i_j[,j]*r_i_j[,j])/sum(exp(X*beta_hat_1)*r_i_j[,j])
+          sol[i,j]=(e_i_j[i,j]-lambda_hat_1[j]*exp(X[i]*beta_hat_1))*X[i]*r_i_j[i,j]
+        }
+      }
+      sum(sol)
+    }
+    beta_hat=uniroot(f,c(ipoint-5,ipoint+5))$root
+    return(beta_hat)
+  }
+  ########################################################
+  f_beta2=function(input_1,input_2,input_3,input_4,input_5,input_6){
+    n=input_1
+    obtime=input_2
+    X=input_3
+    e_i_j=input_4
+    ipoint=input_5
+    r_i_j=input_6
+    s=intersect(sort(obtime),sort(obtime))
+    sol=matrix(rep(0,length(s)*n),nrow=n,ncol=length(s))
+    lambda_hat_1=lambda_hat
+    f=function(beta_hat_1){
+      for(i in 1:n){
+        for(j in 1:length(s)){
+          sol[i,j]=(e_i_j[i,j]-lambda_hat_1[j]*exp(X[i]*beta_hat_1))*X[i]*r_i_j[i,j]
+        }
+      }
+      sum(sol)
+    }
+    beta_hat=uniroot(f,c(ipoint-1,ipoint+1))$root
+    return(beta_hat)
+  }
+  #####################################################
+  f_lambda=function(input_1,input_2,input_3,input_4){
+    X=input_1
+    e_i_j=input_2
+    r_i_j=input_3
+    beta_hat=input_4
+    lambda_hat=c()
+    for(j in 1:length(e_i_j[1,])){
+      lambda_hat[j]=sum(e_i_j[,j]*r_i_j[,j])/sum(exp(X*beta_hat)*r_i_j[,j])
+    }
+    return(lambda_hat)
+  }
+  #################################################################
+  
+  ############################################################################
+  f_eij=function(){
+    e_i_j=matrix(rep(0,length(s0)*n),nrow=n,ncol=length(s0))
+    for(i in 1:n){
+      gird.i=girdmatrix[i,1:M[i]]
+      gird0.i=c(0,gird.i)
+      between=gird.i-gird0.i[1:M[i]]
+      evtime.i=evmartix[i,1:M[i]]
+      number5=c()
+      cum=1
+      for(j in 1:M[i]){
+        number5[j]=sum(lambda_hat[cum:(cum+between[j]-1)])
+        cum=cum+between[j]
+      }
+      e_i=c()
+      for(j in 1:M[i]){
+        e_i=c(e_i,rep(evtime.i[j]/number5[j],between[j]))
+      }
+      if(length(e_i)<length(s0)){
+        e_i_c=rep(((sum(evtime.i)+n^-0.5)/(sum(lambda_hat[1:(cum-1)])+n^-0.5)),(length(s0)-length(e_i)))
+        e_i=c(e_i,e_i_c)
+      }
+      e_i=e_i*lambda_hat
+      e_i_j[i,]=e_i
+    }
+    return(e_i_j)
+  }
+  ############################################################################
+  f_se=function(input_1){
+    p=input_1
+    #####
+    s0=unique(sort(obtime))
+    ###
+    ##############################################################################
+    I_com=matrix(rep(0,(length(s0)+p)^2),nrow=(length(s0)+p),ncol=(length(s0)+p))
+    I=diag(sum(exp(X*beta_hat)), nrow=length(s0)+1)
+    I[1:length(s0),length(s0)+p]=lambda_hat*sum(exp(X*beta_hat)*X)
+    I[length(s0)+p,1:length(s0)]=I[1:length(s0),length(s0)+p]
+    I[length(s0)+1,length(s0)+1]=0
+    for(i in 1:n){
+      for(j in 1:length(s0)){
+        t=lambda_hat[j]*exp(X[i]*beta_hat)*X[i]*X[i]*r_i_j[i,j]
+        I[length(s0)+1,length(s0)+1]=I[length(s0)+1,length(s0)+1]+t
+      }
+    }
+    I_obs=I
+    I_obs_inv=solve(I_obs)
+    ##############################################################################
+    Ui=matrix(,nrow=n,ncol=length(s0)+1)
+    for(i in 1:n){
+      for(j in 1:length(s0)){
+        Ui[i,j]=(e_i_j[i,j]-lambda_hat[j]*exp(X[i]*beta_hat))*r_i_j[i,j]
+      }
+      Ui[i,length(s0)+1]=sum((e_i_j[i,]-lambda_hat*exp(X[i]*beta_hat))*X[i]*r_i_j[i,])
+    }
+    U=matrix(rep(0,(length(s0)+1)^2),nrow=length(s0)+1,ncol=length(s0)+1)
+    for(i in 1:n){
+      Ui_matrix=Ui[i,]%*%t(Ui[i,])
+      U=U+Ui_matrix
+    }
+    ###########
+    V1=(I_obs_inv%*%U%*%I_obs_inv)
+    list("V1"=V1)
+  }
+  ################################
+  ID=input_1
+  obtime=input_2
+  evtime=input_3
+  gender=input_4
+  data_function=data.frame(ID,obtime,evtime,gender)
+  library(gee)
+  model_gee=gee(evtime ~ gender, id=ID, , data=data_function ,family = "poisson")
+  beta_gee=model_gee$coefficients[2]
+  beta_hat=model_gee$coefficients[2]
+  ############################################################################
+  #generate personal data
+  output1=f_one(ID,evtime,gender)
+  n=output1[[1]]
+  M=output1[[2]]
+  X=output1[[3]]
+  evtime_one=output1[[4]]
+  ############################################################################
+  #generate eij from proportio of subinterval
+  s0=unique(sort(obtime))
+  #############################################
+  #1 is the G0=1
+  s00=c(0,intersect(sort(obtime),sort(obtime)))
+  ####################event martix and time gird matrix#############################
+  evmartix=matrix(rep(0,n*max(M)),nrow=n,ncol = max(M))
+  countforev=0
+  for(i in 1:n){
+    for(j in 1:M[i]){
+      countforev=countforev+1
+      evmartix[i,j]=evtime[countforev] 
+    }
+  }
+  girdmatrix=matrix(rep(0,n*max(M)),nrow=n,ncol = max(M))
+  T=obtime[1:M[1]]
+  for(j in 1:M[1]){
+    girdmatrix[1,j]=which(s0==T[j])
+  }
+  for(i in 2:n){
+    T=obtime[(sum(M[1:(i-1)])+1):sum(M[1:i])]
+    for(j in 1:M[i]){
+      girdmatrix[i,j]=which(s0==T[j])
+    }
+  }
+  #################################################################
+  lambda_hat=(s00[2:length(s00)]-s00[1:(length(s00)-1)])/sum(s00[2:length(s00)]-s00[1:(length(s00)-1)])
+  e_i_j=matrix(rep(0,length(s0)*n),nrow=n,ncol=length(s0))
+  for(i in 1:n){
+    e_i_j[i,]=lambda_hat
+  }
+  r_i_j=matrix(rep(1,(length(s00)-1)*n),nrow=n,ncol=length(s00)-1)
+  lambda_hat=f_lambda(X,e_i_j,r_i_j,beta_hat)
+  beta_hat=f_beta(n,obtime,X,e_i_j,beta_gee,r_i_j)
+  k=1
+  beta_collect=c()
+  runningtime=proc.time()
+  while(k<150){
+    k=k+1
+    print(k)
+    beta_collect=c(beta_collect,beta_hat)
+    e_i_j=f_eij()
+    lambda_hat=f_lambda(X,e_i_j,r_i_j,beta_hat)
+    beta_hat=f_beta2(n,obtime,X,e_i_j,beta_collect[k-1],r_i_j)
+    if(abs(beta_hat-beta_collect[k-1])<10^-6){break}
+    if(abs(beta_hat-beta_collect[k-1])/abs(beta_collect[k-1])<10^-6){break}
+  }
+  ##SE###########################################
+  V=f_se(1)
+  V1=V$V1
+  se_hat_withB=sqrt(V1[length(s0)+1,length(s0)+1])
+  ################################################
+  runningtime=proc.time()-runningtime
+  ############################
+  
+  ############################
+  
+  ############################
+  list("Beta"=beta_hat,"Beta_converge"=beta_collect,"timeGrid"=sort(unique(obtime)),"Lambda"=lambda_hat,"iter"=k,"time"=runningtime,"Se"=se_hat_withB,"Gee"=beta_gee)
+}
